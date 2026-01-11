@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:habit_forge/core/utils/date_key.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/habit.dart';
@@ -85,5 +86,30 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
     final m = dt.month.toString().padLeft(2, '0');
     final d = dt.day.toString().padLeft(2, '0');
     return '$y-$m-$d';
+  }
+
+  Future<void> toggleCompleteToday(String habitId) async {
+    final current = state.value ?? [];
+    final index = current.indexWhere((h) => h.id == habitId);
+    if (index == -1) return;
+
+    final habit = current[index];
+    final today = dateKey(DateTime.now());
+
+    final newCompleted = {...habit.completedDays}; // копия Set
+    if (newCompleted.contains(today)) {
+      newCompleted.remove(today);
+    } else {
+      newCompleted.add(today);
+    }
+
+    final updated = habit.copyWith(completedDays: newCompleted);
+
+    await _repo.save(updated);
+
+    final updatedList = [...current];
+    updatedList[index] = updated;
+
+    state = AsyncData(updatedList);
   }
 }

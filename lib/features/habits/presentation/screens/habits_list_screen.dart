@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:habit_forge/core/utils/date_key.dart';
+import 'package:habit_forge/features/habits/domain/services/habit_stats.dart';
+import 'package:habit_forge/features/habits/presentation/widgets/weekly_progress_bar.dart';
 
 import '../../domain/entities/habit.dart';
 import '../state/habits_providers.dart';
@@ -61,13 +64,27 @@ class _HabitTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final todayKey = _toDayKey(DateTime.now());
+    final todayKey = dateKey(DateTime.now());
     final doneToday = habit.completedDays.contains(todayKey);
+    final streak = currentStreak(habit);
+    final weeklyDone = completionsLast7Days(habit);
 
     return ListTile(
       title: Text(habit.title),
-      subtitle: Text('Активные дни: ${habit.activeWeekdays.join(", ")}'),
-      leading: Icon(doneToday ? Icons.check_circle : Icons.circle_outlined),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Streak: $streak  •  7д: $weeklyDone/7'),
+          const SizedBox(height: 6),
+          WeeklyProgressBar(values: last7DaysBinary(habit)),
+        ],
+      ),
+      leading: Checkbox(
+        value: doneToday,
+        onChanged: (_) {
+          ref.read(habitsNotifierProvider.notifier).toggleToday(habit);
+        },
+      ),
       onTap: () => ref.read(habitsNotifierProvider.notifier).toggleToday(habit),
       trailing: IconButton(
         icon: const Icon(Icons.delete),
@@ -76,12 +93,5 @@ class _HabitTile extends ConsumerWidget {
                 ref.read(habitsNotifierProvider.notifier).deleteHabit(habit.id),
       ),
     );
-  }
-
-  String _toDayKey(DateTime dt) {
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
   }
 }
