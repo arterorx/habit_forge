@@ -2,11 +2,8 @@ class Habit {
   final String id;
   final String title;
 
-  /// 0..6 (пн..вс) — так проще работать с расписанием
   final List<int> activeWeekdays;
 
-  /// Список дней, когда привычка выполнена.
-  /// Храним как YYYY-MM-DD, чтобы не мучаться с таймзонами и временем.
   final Set<String> completedDays;
 
   final DateTime createdAt;
