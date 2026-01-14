@@ -1,4 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:habit_forge/core/notifications/notification_service.dart';
+import 'package:habit_forge/core/notifications/notifications_providers.dart';
+import 'package:habit_forge/core/settings/app_settings_providers.dart';
 import 'package:habit_forge/core/utils/date_key.dart';
 import 'package:uuid/uuid.dart';
 
@@ -7,18 +10,22 @@ import '../../domain/repositories/habits_repository.dart';
 import 'habits_providers.dart';
 
 class HabitsNotifier extends AsyncNotifier<List<Habit>> {
-  late final HabitsRepository _repo;
+  HabitsRepository get _repo => ref.read(habitsRepositoryProvider);
+  NotificationService get _notifications =>
+      ref.read(notificationServiceProvider);
 
   @override
   Future<List<Habit>> build() async {
-    _repo = ref.watch(habitsRepositoryProvider);
-    return _repo
-        .getAll(); // или getAll/getHabits — смотри как у тебя называется
+    // ❗️Никаких late final присваиваний. build может вызываться много раз.
+    return _repo.getAll();
   }
 
   Future<void> addHabit({
     required String title,
     required List<int> activeWeekdays,
+    required bool remindersEnabled,
+    required int reminderHour,
+    required int reminderMinute,
   }) async {
     final current = state.value ?? [];
 
@@ -28,23 +35,40 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
       activeWeekdays: activeWeekdays,
       completedDays: <String>{},
       createdAt: DateTime.now(),
+      remindersEnabled: remindersEnabled,
+      reminderHour: reminderHour,
+      reminderMinute: reminderMinute,
     );
 
-    // optimistic update (UI реагирует сразу)
+    // optimistic UI
     state = AsyncData([habit, ...current]);
 
     try {
       await _repo.save(habit);
-      // гарантируем синхронизацию с БД
+
+      final settings = ref.read(appSettingsNotifierProvider).value;
+
+      if (habit.remindersEnabled && (settings?.notificationsEnabled ?? true)) {
+        final ok = await _notifications.requestPermissions();
+        if (ok) {
+          await _notifications.scheduleWeeklyHabit(
+            habitId: habit.id,
+            title: habit.title,
+            activeWeekdays: habit.activeWeekdays,
+            hour: habit.reminderHour,
+            minute: habit.reminderMinute,
+          );
+        }
+      }
+
       state = AsyncData(await _repo.getAll());
     } catch (e, st) {
-      // откат
       state = AsyncError(e, st);
     }
   }
 
   Future<void> toggleToday(Habit habit) async {
-    final today = _toDayKey(DateTime.now());
+    final today = dateKey(DateTime.now());
     final set = {...habit.completedDays};
 
     if (set.contains(today)) {
@@ -55,7 +79,6 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
 
     final updated = habit.copyWith(completedDays: set);
 
-    // обновляем список в памяти
     final list = [...(state.value ?? <Habit>[])];
     final idx = list.indexWhere((h) => h.id == habit.id);
     if (idx != -1) list[idx] = updated;
@@ -74,42 +97,38 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
     state = AsyncData(list);
 
     try {
+      await _notifications.cancelHabit(id);
       await _repo.delete(id);
     } catch (e, st) {
       state = AsyncError(e, st);
     }
   }
 
-  String _toDayKey(DateTime dt) {
-    // YYYY-MM-DD — ты уже это выбрал в Domain (это правильно)
-    final y = dt.year.toString().padLeft(4, '0');
-    final m = dt.month.toString().padLeft(2, '0');
-    final d = dt.day.toString().padLeft(2, '0');
-    return '$y-$m-$d';
-  }
+  Future<void> updateReminders(Habit habit) async {
+    try {
+      // 1) всегда отменяем старые
+      await _notifications.cancelHabit(habit.id);
 
-  Future<void> toggleCompleteToday(String habitId) async {
-    final current = state.value ?? [];
-    final index = current.indexWhere((h) => h.id == habitId);
-    if (index == -1) return;
+      final settings = ref.read(appSettingsNotifierProvider).value;
 
-    final habit = current[index];
-    final today = dateKey(DateTime.now());
+      // 2) если включено — пересоздаём
+      if (habit.remindersEnabled && (settings?.notificationsEnabled ?? true)) {
+        final ok = await _notifications.requestPermissions();
+        if (ok) {
+          await _notifications.scheduleWeeklyHabit(
+            habitId: habit.id,
+            title: habit.title,
+            activeWeekdays: habit.activeWeekdays,
+            hour: habit.reminderHour,
+            minute: habit.reminderMinute,
+          );
+        }
+      }
 
-    final newCompleted = {...habit.completedDays}; // копия Set
-    if (newCompleted.contains(today)) {
-      newCompleted.remove(today);
-    } else {
-      newCompleted.add(today);
+      await _repo.save(habit);
+      state = AsyncData(await _repo.getAll());
+    } catch (e, st) {
+      state = AsyncError(e, st);
     }
-
-    final updated = habit.copyWith(completedDays: newCompleted);
-
-    await _repo.save(updated);
-
-    final updatedList = [...current];
-    updatedList[index] = updated;
-
-    state = AsyncData(updatedList);
   }
 }

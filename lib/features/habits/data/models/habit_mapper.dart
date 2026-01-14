@@ -6,9 +6,12 @@ class HabitMapper {
     return Habit(
       id: m.id,
       title: m.title,
-      activeWeekdays: List<int>.from(m.activeWeekdays),
+      activeWeekdays: m.activeWeekdays,
       completedDays: m.completedDays.toSet(),
       createdAt: m.createdAt,
+      remindersEnabled: m.remindersEnabled ?? false,
+      reminderHour: m.reminderHour ?? 20,
+      reminderMinute: m.reminderMinute ?? 0,
     );
   }
 
@@ -16,9 +19,12 @@ class HabitMapper {
     return HabitHiveModel(
       id: e.id,
       title: e.title,
-      activeWeekdays: List<int>.from(e.activeWeekdays),
+      activeWeekdays: e.activeWeekdays,
       completedDays: e.completedDays.toList(),
       createdAt: e.createdAt,
+      remindersEnabled: e.remindersEnabled,
+      reminderHour: e.reminderHour,
+      reminderMinute: e.reminderMinute,
     );
   }
 }

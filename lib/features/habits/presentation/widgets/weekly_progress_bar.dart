@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 class WeeklyProgressBar extends StatelessWidget {
   const WeeklyProgressBar({super.key, required this.values});
 
-  /// 7 чисел (0/1), слева старые дни, справа сегодня
   final List<int> values;
 
   @override

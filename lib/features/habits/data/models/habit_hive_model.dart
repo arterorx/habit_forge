@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'habit_hive_model.g.dart';
 
-@HiveType(typeId: 1)
+@HiveType(typeId: 0)
 class HabitHiveModel extends HiveObject {
   @HiveField(0)
   String id;
@@ -14,10 +14,19 @@ class HabitHiveModel extends HiveObject {
   List<int> activeWeekdays;
 
   @HiveField(3)
-  List<String> completedDays; // Hive не любит Set напрямую, храним List
+  List<String> completedDays;
 
   @HiveField(4)
   DateTime createdAt;
+
+  @HiveField(5)
+  bool? remindersEnabled;
+
+  @HiveField(6)
+  int? reminderHour;
+
+  @HiveField(7)
+  int? reminderMinute;
 
   HabitHiveModel({
     required this.id,
@@ -25,5 +34,8 @@ class HabitHiveModel extends HiveObject {
     required this.activeWeekdays,
     required this.completedDays,
     required this.createdAt,
+    this.remindersEnabled,
+    this.reminderHour,
+    this.reminderMinute,
   });
 }

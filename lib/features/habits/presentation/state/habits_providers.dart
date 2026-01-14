@@ -15,5 +15,6 @@ final habitsRepositoryProvider = Provider<HabitsRepository>((ref) {
   return HabitsRepositoryImpl(ds);
 });
 
+// AsyncNotifierProvider — можно оставлять так, HabitsNotifier сам возьмёт зависимости через ref
 final habitsNotifierProvider =
     AsyncNotifierProvider<HabitsNotifier, List<Habit>>(HabitsNotifier.new);

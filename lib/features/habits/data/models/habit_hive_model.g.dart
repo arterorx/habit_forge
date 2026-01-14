@@ -8,7 +8,7 @@ part of 'habit_hive_model.dart';
 
 class HabitHiveModelAdapter extends TypeAdapter<HabitHiveModel> {
   @override
-  final int typeId = 1;
+  final int typeId = 0;
 
   @override
   HabitHiveModel read(BinaryReader reader) {
@@ -22,13 +22,16 @@ class HabitHiveModelAdapter extends TypeAdapter<HabitHiveModel> {
       activeWeekdays: (fields[2] as List).cast<int>(),
       completedDays: (fields[3] as List).cast<String>(),
       createdAt: fields[4] as DateTime,
+      remindersEnabled: fields[5] as bool?,
+      reminderHour: fields[6] as int?,
+      reminderMinute: fields[7] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, HabitHiveModel obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -36,9 +39,15 @@ class HabitHiveModelAdapter extends TypeAdapter<HabitHiveModel> {
       ..writeByte(2)
       ..write(obj.activeWeekdays)
       ..writeByte(3)
-      ..write(obj.completedDays.toList())
+      ..write(obj.completedDays)
       ..writeByte(4)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(5)
+      ..write(obj.remindersEnabled)
+      ..writeByte(6)
+      ..write(obj.reminderHour)
+      ..writeByte(7)
+      ..write(obj.reminderMinute);
   }
 
   @override

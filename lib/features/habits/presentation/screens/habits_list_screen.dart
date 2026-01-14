@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_forge/core/utils/date_key.dart';
 import 'package:habit_forge/features/habits/domain/services/habit_stats.dart';
+import 'package:habit_forge/features/habits/presentation/screens/habit_details_screen.dart';
+import 'package:habit_forge/features/habits/presentation/screens/settings_screen.dart';
 import 'package:habit_forge/features/habits/presentation/widgets/weekly_progress_bar.dart';
 
 import '../../domain/entities/habit.dart';
@@ -16,7 +18,20 @@ class HabitsListScreen extends ConsumerWidget {
     final habitsAsync = ref.watch(habitsNotifierProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('HabitForge')),
+      appBar: AppBar(
+        title: const Text('HabitForge'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final result = await Navigator.push(
@@ -30,6 +45,9 @@ class HabitsListScreen extends ConsumerWidget {
                 .addHabit(
                   title: result.title,
                   activeWeekdays: result.activeWeekdays,
+                  remindersEnabled: result.remindersEnabled,
+                  reminderHour: result.reminderHour,
+                  reminderMinute: result.reminderMinute,
                 );
           }
         },
@@ -85,7 +103,14 @@ class _HabitTile extends ConsumerWidget {
           ref.read(habitsNotifierProvider.notifier).toggleToday(habit);
         },
       ),
-      onTap: () => ref.read(habitsNotifierProvider.notifier).toggleToday(habit),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HabitDetailsScreen(habitId: habit.id),
+          ),
+        );
+      },
       trailing: IconButton(
         icon: const Icon(Icons.delete),
         onPressed:
