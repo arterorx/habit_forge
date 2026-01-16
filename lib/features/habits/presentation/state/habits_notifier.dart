@@ -1,4 +1,7 @@
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:habit_forge/core/analytics/firebase_providers.dart';
 import 'package:habit_forge/core/notifications/notification_service.dart';
 import 'package:habit_forge/core/notifications/notifications_providers.dart';
 import 'package:habit_forge/core/settings/app_settings_providers.dart';
@@ -13,6 +16,9 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
   HabitsRepository get _repo => ref.read(habitsRepositoryProvider);
   NotificationService get _notifications =>
       ref.read(notificationServiceProvider);
+
+  FirebaseAnalytics get _analytics => ref.read(firebaseAnalyticsProvider);
+  FirebaseCrashlytics get _crashlytics => ref.read(crashlyticsProvider);
 
   @override
   Future<List<Habit>> build() async {
@@ -45,6 +51,14 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
 
     try {
       await _repo.save(habit);
+      await _analytics.logEvent(
+        name: 'habit_created',
+        parameters: {
+          'habit_id': habit.id,
+          'weekday_count': habit.activeWeekdays.length,
+          'reminders_enabled': habit.remindersEnabled ? 1 : 0,
+        },
+      );
 
       final settings = ref.read(appSettingsNotifierProvider).value;
 
@@ -58,11 +72,21 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
             hour: habit.reminderHour,
             minute: habit.reminderMinute,
           );
+          await _analytics.logEvent(
+            name: 'notification_enabled',
+            parameters: {
+              'habit_id': habit.id,
+              'hour': habit.reminderHour,
+              'minute': habit.reminderMinute,
+              'weekday_count': habit.activeWeekdays.length,
+            },
+          );
         }
       }
 
       state = AsyncData(await _repo.getAll());
     } catch (e, st) {
+      await _crashlytics.recordError(e, st, reason: 'addHabit failed');
       state = AsyncError(e, st);
     }
   }
@@ -71,7 +95,8 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
     final today = dateKey(DateTime.now());
     final set = {...habit.completedDays};
 
-    if (set.contains(today)) {
+    final wasDone = set.contains(today);
+    if (wasDone) {
       set.remove(today);
     } else {
       set.add(today);
@@ -79,6 +104,7 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
 
     final updated = habit.copyWith(completedDays: set);
 
+    // optimistic UI: обновляем список сразу
     final list = [...(state.value ?? <Habit>[])];
     final idx = list.indexWhere((h) => h.id == habit.id);
     if (idx != -1) list[idx] = updated;
@@ -86,7 +112,14 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
 
     try {
       await _repo.save(updated);
+
+      final isDoneNow = set.contains(today);
+      await _analytics.logEvent(
+        name: 'habit_completed',
+        parameters: {'habit_id': habit.id, 'completed': isDoneNow ? 1 : 0},
+      );
     } catch (e, st) {
+      await _crashlytics.recordError(e, st, reason: 'toggleToday failed');
       state = AsyncError(e, st);
     }
   }
@@ -100,6 +133,7 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
       await _notifications.cancelHabit(id);
       await _repo.delete(id);
     } catch (e, st) {
+      await _crashlytics.recordError(e, st, reason: 'deleteHabit failed');
       state = AsyncError(e, st);
     }
   }
@@ -128,6 +162,7 @@ class HabitsNotifier extends AsyncNotifier<List<Habit>> {
       await _repo.save(habit);
       state = AsyncData(await _repo.getAll());
     } catch (e, st) {
+      await _crashlytics.recordError(e, st, reason: 'updateReminders failed');
       state = AsyncError(e, st);
     }
   }

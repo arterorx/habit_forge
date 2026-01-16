@@ -1,6 +1,11 @@
+import 'dart:ui';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:habit_forge/core/settings/app_settings_hive_model.dart';
+import 'package:habit_forge/firebase_options.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app/app.dart';
@@ -13,6 +18,20 @@ Future<void> main() async {
   await Hive.initFlutter();
   Hive.registerAdapter(HabitHiveModelAdapter());
   Hive.registerAdapter(AppSettingsHiveModelAdapter());
+
+  // --- Firebase ---
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // --- Crashlytics: глобальные ошибки Flutter ---
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+  };
+
+  // --- Crashlytics: ошибки вне Flutter (async / isolates) ---
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   final container = ProviderContainer();
 
